@@ -6,34 +6,16 @@ A music analysis web app built with FastAPI, SQLAlchemy (async), PostgreSQL, Red
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        FastAPI App                          │
-│                                                             │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌───────────┐  │
-│  │  /auth   │  │/playlists│  │ /ingest  │  │/algorithms│  │
-│  └──────────┘  └──────────┘  └──────────┘  └───────────┘  │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-        ┌──────────────────┼──────────────────┐
-        │                  │                  │
-   ┌────▼────┐       ┌─────▼─────┐     ┌──────▼──────┐
-   │ Spotify │       │  Ingestion│     │  Algorithm  │
-   │ Client  │       │  Service  │     │  Modules    │
-   │(httpx + │       │           │     │             │
-   │ tenacity│       │ Transform │     │ key_norm    │
-   └────┬────┘       │ → Upsert  │     │ harmonic    │
-        │            └─────┬─────┘     └─────────────┘
-   ┌────▼────┐             │
-   │  Redis  │       ┌─────▼─────┐
-   │  Cache  │       │ PostgreSQL│
-   │  (TTL)  │       │           │
-   └─────────┘       │ users     │
-                     │ playlists │
-                     │ tracks    │
-                     │ audio_feat│
-                     │ raw_payld │
-                     └───────────┘
+```mermaid
+flowchart TD
+    App["FastAPI App\n/auth · /playlists · /ingest · /algorithms"]
+
+    App --> SC["Spotify Client\nhttpx + tenacity"]
+    App --> IS["Ingestion Service\nTransform → Upsert"]
+    App --> AM["Algorithm Modules\nkey_norm · harmonic"]
+
+    SC --> Redis["Redis Cache\nTTL"]
+    IS --> PG["PostgreSQL\nusers · playlists · tracks\naudio_features · raw_payloads"]
 ```
 
 ### Layer Separation
@@ -42,8 +24,8 @@ A music analysis web app built with FastAPI, SQLAlchemy (async), PostgreSQL, Red
 |---|---|---|
 | **Ingestion** | `app/ingestion/` | Spotify API calls, retry/rate-limit logic, YouTube fallback |
 | **Transformation** | `app/transformation/` | Raw → normalized domain objects (pure functions) |
-| **Storage** | `app/db/` | ORM models, repositories, upsert strategies |
-| **Enrichment** | `app/algorithms/` | Key normalization, harmonic compatibility scoring |
+| **Storage** | `app/db/` | Models, repositories, upsert strategies |
+| **Enrichment** | `app/algorithms/` | Key normalization|
 | **Cache** | `app/cache/` | Redis-backed cache-aside pattern |
 | **API** | `app/api/` | FastAPI routers exposing the pipeline |
 
@@ -58,7 +40,7 @@ A music analysis web app built with FastAPI, SQLAlchemy (async), PostgreSQL, Red
 - **httpx + tenacity** — resilient HTTP client with exponential backoff
 - **yt-dlp + librosa** — YouTube audio download and fallback feature extraction
 - **structlog** — structured JSON logging
-- **Docker Compose** — local orchestration
+- **Docker** — dockerization
 
 ---
 
@@ -74,7 +56,7 @@ tunescope/
 │   │       ├── auth.py            # OAuth flow
 │   │       ├── playlists.py       # GET /playlists
 │   │       ├── ingestion.py       # Ingestion + analysis endpoints
-│   │       └── algorithms.py      # Key, compatibility endpoints
+│   │       └── algorithms.py      # Key finding endpoint
 │   ├── core/
 │   │   ├── config.py
 │   │   └── logging.py
@@ -90,8 +72,7 @@ tunescope/
 │   ├── transformation/
 │   │   └── normalizer.py
 │   ├── algorithms/
-│   │   ├── key_normalization.py
-│   │   └── harmonic_compatibility.py
+│   │   └── key_normalization.py
 │   └── cache/
 │       └── redis_cache.py
 ├── Dockerfile
@@ -181,24 +162,12 @@ GET /algorithms/compatibility?track_a_id=xxx&track_b_id=yyy
 
 ### Key Normalization (`app/algorithms/key_normalization.py`)
 
-Converts Spotify's integer pitch class (0–11) + mode (0/1) into human-readable key names, with sharp/flat preference and transposition support.
+Converts Spotify's integer pitch class (0–11) + mode (0/1) into human-readable key names.
 
 ```python
 normalize_key(8, 1, prefer_flats=True)  # → ("Ab", "major")
 transpose_key(0, 7)                      # → 7 (C up a fifth = G)
-circle_of_fifths_distance(0, 7)         # → 1
 ```
-
-### Harmonic Compatibility Scorer (`app/algorithms/harmonic_compatibility.py`)
-
-Scores two tracks 0–100 using circle-of-fifths distance (40 pts), relative/parallel key relationship (30 pts), and BPM proximity (30 pts).
-
-```python
-score = harmonic_compatibility_score(track_a_features, track_b_features)
-ranked = rank_by_compatibility(reference_track, candidate_tracks)
-```
-
----
 
 ## Design Notes
 
@@ -211,5 +180,3 @@ ranked = rank_by_compatibility(reference_track, candidate_tracks)
 **Cache-aside** — audio features are cached in Redis (1-hour TTL). Cache failures are non-blocking.
 
 **YouTube fallback** — tracks without ReccoBeats coverage are downloaded via yt-dlp and analyzed locally with librosa. The SSE stream endpoint reports progress in real time as each track completes.
-#   t u n e s c o p e  
- 
