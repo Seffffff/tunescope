@@ -8,14 +8,22 @@ A music analysis web app built with FastAPI, SQLAlchemy (async), PostgreSQL, Red
 
 ```mermaid
 flowchart TD
-    App["FastAPI App\n/auth · /playlists · /ingest · /algorithms"]
+    App["FastAPI App
+        /auth  /playlists
+        /ingest  /algorithms"]
 
-    App --> SC["Spotify Client\nhttpx + tenacity"]
-    App --> IS["Ingestion Service\nTransform → Upsert"]
-    App --> AM["Algorithm Modules\nkey_norm · harmonic"]
+    App --> SC["Spotify Client 
+                httpx + tenacity"]
+    App --> IS["Ingestion Service 
+                Transform → Upsert"]
+    App --> AM["Algorithm Modules 
+                key_norm · harmonic"]
 
-    SC --> Redis["Redis Cache\nTTL"]
-    IS --> PG["PostgreSQL\nusers · playlists · tracks\naudio_features · raw_payloads"]
+    SC --> Redis["Redis Cache
+                    TTL"]
+    IS --> PG["PostgreSQL
+                users · playlists · tracks
+            audio_features · raw_payloads"]
 ```
 
 ### Layer Separation
@@ -107,6 +115,9 @@ docker compose up --build
 ```
 
 API: `http://localhost:8000` · Docs: `http://localhost:8000/docs`
+Entry Points:
+  - /         : Root endpoint (redirects to /auth/login)
+  - /auth/login : Login/authentication endpoint
 
 ---
 
@@ -153,7 +164,6 @@ Ingestion is idempotent: repeated runs produce the same DB state. Pass `force_re
 
 ```
 GET /algorithms/key/{track_id}?semitones=7&prefer_flats=true
-GET /algorithms/compatibility?track_a_id=xxx&track_b_id=yyy
 ```
 
 ---
@@ -171,11 +181,11 @@ transpose_key(0, 7)                      # → 7 (C up a fifth = G)
 
 ## Design Notes
 
-**Idempotent writes** — all DB writes use `ON CONFLICT DO UPDATE`. Running ingestion twice produces identical state.
+**Idempotent database writes** — All insert operations use ON CONFLICT DO UPDATE, ensuring repeated ingestion runs produce a consistent and identical database state without duplication.
 
 **Raw payload storage** — every Spotify response is stored verbatim as JSONB, serving as an audit trail and replay buffer.
 
-**Partial failure isolation** — track upserts and audio feature upserts commit independently. A ReccoBeats failure doesn't roll back already-stored tracks.
+**Isolated partial failures** — Track upserts and audio feature upserts commit independently, preventing downstream failures (e.g., ReccoBeats errors) from rolling back successfully persisted data.
 
 **Cache-aside** — audio features are cached in Redis (1-hour TTL). Cache failures are non-blocking.
 
