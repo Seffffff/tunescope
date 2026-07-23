@@ -1,0 +1,6 @@
+# Dev/test-only dependencies. Install alongside requirements.txt:
+#   pip install -r requirements.txt -r requirements-dev.txt
+pytest==8.2.2
+pytest-asyncio==0.23.7
+ruff==0.5.0
+black==24.4.2

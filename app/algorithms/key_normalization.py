@@ -10,11 +10,12 @@ This module provides:
   - key_to_int()        : reverse lookup from name to integer
   - circle_of_fifths_distance() : used by harmonic scoring
 """
+
 from __future__ import annotations
 
 # Pitch class notation: index 0=C, 1=C#/Db, ..., 11=B
 _SHARP_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-_FLAT_NAMES  = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"]
+_FLAT_NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"]
 
 # Circle of fifths order (major) for distance calculations
 _CIRCLE_OF_FIFTHS = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5]

@@ -2,13 +2,15 @@
 Application configuration using pydantic-settings.
 All sensitive values are loaded from environment variables.
 """
+
 from functools import lru_cache
+
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     # App
-    app_name: str = "Spotify Enrichment Platform"
+    app_name: str = "Tunescope"
     debug: bool = False
     secret_key: str
 
@@ -33,7 +35,7 @@ class Settings(BaseSettings):
     rate_limit_retry_base_delay: float = 1.0  # seconds
 
     # Cache TTLs (seconds)
-    cache_ttl_playlists: int = 300   # 5 minutes
+    cache_ttl_playlists: int = 300  # 5 minutes
     cache_ttl_audio_features: int = 3600  # 1 hour
 
     model_config = {"env_file": ".env", "case_sensitive": False}
@@ -48,6 +50,6 @@ class Settings(BaseSettings):
             )
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     return Settings()

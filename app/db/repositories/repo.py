@@ -5,10 +5,10 @@ Design decision: Repositories receive a session from the caller rather than
 creating their own — this keeps transaction boundaries in the service/ingestion
 layer where business logic lives.
 """
-from datetime import datetime
-from typing import Sequence
 
-from sqlalchemy import select, or_
+from datetime import datetime
+
+from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,10 +21,10 @@ from app.db.models import (
     User,
 )
 
-
 # ---------------------------------------------------------------------------
 # User
 # ---------------------------------------------------------------------------
+
 
 async def upsert_user(session: AsyncSession, spotify_id: str, **kwargs) -> User:
     """
@@ -54,6 +54,7 @@ async def get_user_by_spotify_id(session: AsyncSession, spotify_id: str) -> User
 # Playlist
 # ---------------------------------------------------------------------------
 
+
 async def upsert_playlist(
     session: AsyncSession, spotify_id: str, owner_id: str, **kwargs
 ) -> Playlist:
@@ -71,18 +72,15 @@ async def upsert_playlist(
     return result.scalar_one()
 
 
-async def get_playlist_by_spotify_id(
-    session: AsyncSession, spotify_id: str
-) -> Playlist | None:
-    result = await session.execute(
-        select(Playlist).where(Playlist.spotify_id == spotify_id)
-    )
+async def get_playlist_by_spotify_id(session: AsyncSession, spotify_id: str) -> Playlist | None:
+    result = await session.execute(select(Playlist).where(Playlist.spotify_id == spotify_id))
     return result.scalar_one_or_none()
 
 
 # ---------------------------------------------------------------------------
 # Track
 # ---------------------------------------------------------------------------
+
 
 async def upsert_track(session: AsyncSession, spotify_id: str, **kwargs) -> Track:
     stmt = (
@@ -121,6 +119,7 @@ async def get_tracks_missing_audio_features(
 # PlaylistTrack
 # ---------------------------------------------------------------------------
 
+
 async def upsert_playlist_track(
     session: AsyncSession,
     playlist_id: str,
@@ -148,9 +147,8 @@ async def upsert_playlist_track(
 # AudioFeatures
 # ---------------------------------------------------------------------------
 
-async def upsert_audio_features(
-    session: AsyncSession, track_id: str, **kwargs
-) -> AudioFeatures:
+
+async def upsert_audio_features(session: AsyncSession, track_id: str, **kwargs) -> AudioFeatures:
     stmt = (
         pg_insert(AudioFeatures)
         .values(track_id=track_id, **kwargs)
@@ -169,15 +167,13 @@ async def upsert_audio_features(
 # Raw payloads (append-only)
 # ---------------------------------------------------------------------------
 
+
 async def store_raw_payload(
     session: AsyncSession,
     entity_type: str,
     spotify_id: str,
     payload: dict,
 ) -> None:
-    raw = RawSpotifyPayload(
-        entity_type=entity_type, spotify_id=spotify_id, payload=payload
-    )
+    raw = RawSpotifyPayload(entity_type=entity_type, spotify_id=spotify_id, payload=payload)
     session.add(raw)
     await session.flush()
-

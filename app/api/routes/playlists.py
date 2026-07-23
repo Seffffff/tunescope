@@ -1,6 +1,7 @@
 """
 Playlist routes.
 """
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 
 from app.api.schemas import PlaylistListResponse, PlaylistSummary
@@ -16,7 +17,7 @@ def _get_access_token(authorization: str = Header(...)) -> str:
     """Extract Bearer token from Authorization header."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization header")
-    return authorization[len("Bearer "):]
+    return authorization[len("Bearer ") :]
 
 
 @router.get("", response_model=PlaylistListResponse)

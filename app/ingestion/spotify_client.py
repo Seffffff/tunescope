@@ -7,6 +7,7 @@ Handles:
 - Exponential backoff via tenacity
 - Batch audio feature fetching (100 IDs per call)
 """
+
 import asyncio
 from typing import Any
 
@@ -27,6 +28,7 @@ settings = get_settings()
 
 class SpotifyRateLimitError(Exception):
     """Raised when Spotify returns HTTP 429."""
+
     def __init__(self, retry_after: int = 1):
         self.retry_after = retry_after
         super().__init__(f"Rate limited. Retry after {retry_after}s")
@@ -72,18 +74,14 @@ class SpotifyClient:
             raise SpotifyAPIError("Access token expired or invalid")
 
         if not response.is_success:
-            raise SpotifyAPIError(
-                f"Spotify API error {response.status_code}: {response.text}"
-            )
+            raise SpotifyAPIError(f"Spotify API error {response.status_code}: {response.text}")
 
         return response.json()
 
     @retry(
         retry=retry_if_exception_type(SpotifyRateLimitError),
         stop=stop_after_attempt(settings.rate_limit_retry_max),
-        wait=wait_exponential(
-            multiplier=settings.rate_limit_retry_base_delay, min=1, max=30
-        ),
+        wait=wait_exponential(multiplier=settings.rate_limit_retry_base_delay, min=1, max=30),
         reraise=True,
     )
     async def get_current_user(self) -> dict:
@@ -146,9 +144,7 @@ class SpotifyClient:
         logger.info("fetched_playlist_tracks", playlist_id=playlist_id, count=len(all_items))
         return all_items
 
-    async def exchange_code_for_tokens(
-        self, code: str, redirect_uri: str
-    ) -> dict[str, Any]:
+    async def exchange_code_for_tokens(self, code: str, redirect_uri: str) -> dict[str, Any]:
         """OAuth2 authorization code exchange."""
         async with httpx.AsyncClient() as client:
             response = await client.post(

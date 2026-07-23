@@ -1,0 +1,9 @@
+# Normalize all text files to LF in the repository, regardless of the
+# committing OS's line-ending settings (prevents CRLF/LF diff noise).
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary

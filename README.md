@@ -1,5 +1,9 @@
 # Tunescope
 
+[![CI](https://github.com/Seffffff/tunescope/actions/workflows/ci.yml/badge.svg)](https://github.com/Seffffff/tunescope/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+
 A music analysis web app built with FastAPI, SQLAlchemy (async), PostgreSQL, Redis, and a vanilla JS frontend. Users connect their Spotify account, ingest playlists, and analyze tracks for BPM, key, energy, danceability, and other audio features. Tracks that the primary analysis source can't cover are processed through a YouTube download → librosa fallback pipeline.
 
 ---
@@ -10,7 +14,7 @@ A music analysis web app built with FastAPI, SQLAlchemy (async), PostgreSQL, Red
 flowchart TD
     App["FastAPI App
         /auth  /playlists
-        /ingest  /algorithms"]
+        /ingest"]
 
     App --> SC["Spotify Client 
                 httpx + tenacity"]
@@ -63,8 +67,7 @@ tunescope/
 │   │   └── routes/
 │   │       ├── auth.py            # OAuth flow
 │   │       ├── playlists.py       # GET /playlists
-│   │       ├── ingestion.py       # Ingestion + analysis endpoints
-│   │       └── algorithms.py      # Key finding endpoint
+│   │       └── ingestion.py       # Ingestion + analysis endpoints
 │   ├── core/
 │   │   ├── config.py
 │   │   └── logging.py
@@ -80,12 +83,17 @@ tunescope/
 │   ├── transformation/
 │   │   └── normalizer.py
 │   ├── algorithms/
-│   │   └── key_normalization.py
+│   │   └── key_normalization.py   # Internal helper used by the transformation layer
 │   └── cache/
 │       └── redis_cache.py
+├── tests/                          # pytest — pure-function coverage for algorithms/transformation
+├── .github/workflows/ci.yml        # lint (ruff/black) + test on every push/PR
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
+├── requirements-dev.txt
+├── pyproject.toml                  # ruff/black/pytest config
+├── .env.example
 └── alembic.ini
 ```
 
@@ -115,9 +123,12 @@ docker compose up --build
 ```
 
 API: `http://localhost:8000` · Docs: `http://localhost:8000/docs`
-Entry Points:
-  - /         : Root endpoint (redirects to /auth/login)
-  - /auth/login : Login/authentication endpoint
+
+Entry points:
+  - `/`             : redirects to `/app`, the frontend UI
+  - `/app`           : the frontend UI itself
+  - `/auth/login`    : starts the Spotify OAuth flow
+  - `/health`        : liveness check (used by the Docker healthcheck)
 
 ---
 
@@ -127,7 +138,7 @@ Entry Points:
 
 ```
 GET /auth/login          → redirects to Spotify OAuth
-GET /auth/callback       → returns access_token
+GET /auth/callback       → exchanges the auth code, then redirects to /app?token=<access_token>
 ```
 
 All subsequent requests require:
@@ -160,12 +171,6 @@ The ingestion pipeline:
 
 Ingestion is idempotent: repeated runs produce the same DB state. Pass `force_refetch: true` to bypass the `snapshot_id` check.
 
-### Algorithms
-
-```
-GET /algorithms/key/{track_id}?semitones=7&prefer_flats=true
-```
-
 ---
 
 ## Custom Algorithms
@@ -190,3 +195,23 @@ transpose_key(0, 7)                      # → 7 (C up a fifth = G)
 **Cache-aside** — audio features are cached in Redis (1-hour TTL). Cache failures are non-blocking.
 
 **YouTube fallback** — tracks without ReccoBeats coverage are downloaded via yt-dlp and analyzed locally with librosa. The SSE stream endpoint reports progress in real time as each track completes.
+
+---
+
+## Testing & Code Quality
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+
+pytest -v          # run the test suite
+ruff check .        # lint
+black --check .     # formatting check
+```
+
+`tests/` covers the pure-function layers (`app/algorithms`, `app/transformation`) — no DB, network, or audio pipeline needed to run them. GitHub Actions (`.github/workflows/ci.yml`) runs lint + tests on every push and PR to `main`.
+
+---
+
+## License
+
+[MIT](LICENSE)

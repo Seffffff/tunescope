@@ -7,6 +7,7 @@ Strategy:
 - JSON serialization for complex objects
 - Graceful degradation: on Redis failure, fall through to API
 """
+
 import json
 from typing import Any
 

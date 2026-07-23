@@ -7,10 +7,11 @@ Flow:
   3. We exchange the code for tokens, upsert the user
   4. Redirect to the frontend /app?token=xxx
 """
-import urllib.parse
-from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+import urllib.parse
+from datetime import UTC, datetime, timedelta
+
+from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,10 +36,7 @@ async def login():
         "scope": settings.spotify_scopes,
         "show_dialog": "false",
     }
-    auth_url = (
-        f"{settings.spotify_accounts_base}/authorize?"
-        + urllib.parse.urlencode(params)
-    )
+    auth_url = f"{settings.spotify_accounts_base}/authorize?" + urllib.parse.urlencode(params)
     logger.info("oauth_redirect_initiated")
     return RedirectResponse(url=auth_url)
 
@@ -74,7 +72,7 @@ async def callback(
     access_token = token_data["access_token"]
     refresh_token = token_data.get("refresh_token")
     expires_in = token_data.get("expires_in", 3600)
-    expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+    expires_at = datetime.now(UTC) + timedelta(seconds=expires_in)
 
     # Fetch the user's Spotify profile
     async with SpotifyClient(access_token) as client:

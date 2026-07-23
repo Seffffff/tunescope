@@ -1,6 +1,7 @@
 """
 Ingestion routes.
 """
+
 import asyncio
 import json
 
@@ -12,21 +13,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.schemas import IngestionRequest, IngestionResponse
 from app.core.logging import get_logger
 from app.db.models import AudioFeatures, Playlist, PlaylistTrack, Track
-from app.db.repositories.repo import get_playlist_by_spotify_id, upsert_user, get_user_by_spotify_id
+from app.db.repositories.repo import get_playlist_by_spotify_id, get_user_by_spotify_id, upsert_user
 from app.db.session import get_db
-from app.ingestion.ingestion_service import ingest_playlist, _upsert_audio_feature
+from app.ingestion.ingestion_service import _upsert_audio_feature, ingest_playlist
 from app.ingestion.spotify_client import SpotifyClient
 
 router = APIRouter(prefix="/ingest", tags=["ingestion"])
 logger = get_logger(__name__)
 
-KEY_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 
 def _get_access_token(authorization: str = Header(...)) -> str:
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization header")
-    return authorization[len("Bearer "):]
+    return authorization[len("Bearer ") :]
 
 
 @router.post("/playlist/{playlist_id}", response_model=IngestionResponse)
@@ -64,7 +65,9 @@ async def ingest_playlist_endpoint(
             existing = await get_playlist_by_spotify_id(db, playlist_id)
             if existing:
                 try:
-                    raw_pl = await client._get(f"/playlists/{playlist_id}", params={"fields": "snapshot_id,name"})
+                    raw_pl = await client._get(
+                        f"/playlists/{playlist_id}", params={"fields": "snapshot_id,name"}
+                    )
                     if raw_pl.get("snapshot_id") == existing.snapshot_id:
                         logger.info(
                             "ingestion_skipped_snapshot_match",
@@ -92,7 +95,7 @@ async def ingest_playlist_endpoint(
             )
         except Exception as exc:
             logger.error("ingestion_pipeline_failed", playlist_id=playlist_id, error=str(exc))
-            raise HTTPException(status_code=500, detail=f"Ingestion failed: {exc}")
+            raise HTTPException(status_code=500, detail=f"Ingestion failed: {exc}") from exc
 
     return IngestionResponse(
         playlist_id=playlist_id,
@@ -138,40 +141,44 @@ async def get_playlist_tracks(
     for track, af, position in rows:
         if af is not None and af.tempo is not None:
             key_name = KEY_NAMES[af.key] if af.key is not None else None
-            analyzed.append({
-                "spotify_id": track.spotify_id,
-                "name": track.name,
-                "artist": track.artist,
-                "album": track.album,
-                "tempo": af.tempo,
-                "key": af.key,
-                "key_name": af.key_name or key_name,
-                "mode": af.mode,
-                "mode_name": af.mode_name,
-                "energy": af.energy,
-                "danceability": af.danceability,
-                "valence": af.valence,
-                "loudness": af.loudness,
-                "duration_ms": track.duration_ms,
-                "ultimate_guitar_url": track.ultimate_guitar_url,
-                "spotify_url": f"https://open.spotify.com/track/{track.spotify_id}",
-                "position": position,
-                #"analysis_source": (af.raw_json or {}).get("analysis_source", "reccobeats"),
-            })
+            analyzed.append(
+                {
+                    "spotify_id": track.spotify_id,
+                    "name": track.name,
+                    "artist": track.artist,
+                    "album": track.album,
+                    "tempo": af.tempo,
+                    "key": af.key,
+                    "key_name": af.key_name or key_name,
+                    "mode": af.mode,
+                    "mode_name": af.mode_name,
+                    "energy": af.energy,
+                    "danceability": af.danceability,
+                    "valence": af.valence,
+                    "loudness": af.loudness,
+                    "duration_ms": track.duration_ms,
+                    "ultimate_guitar_url": track.ultimate_guitar_url,
+                    "spotify_url": f"https://open.spotify.com/track/{track.spotify_id}",
+                    "position": position,
+                    # "analysis_source": (af.raw_json or {}).get("analysis_source", "reccobeats"),
+                }
+            )
         else:
-            missing.append({
-                "spotify_id": track.spotify_id,
-                "name": track.name,
-                "artist": track.artist,
-                "album": track.album,
-                "duration_ms": track.duration_ms,
-                "tempo": None,
-                "key": None,
-                "position": position,
-                #"analysis_source": None,
-                "ultimate_guitar_url": track.ultimate_guitar_url,
-                "spotify_url": f"https://open.spotify.com/track/{track.spotify_id}",
-            })
+            missing.append(
+                {
+                    "spotify_id": track.spotify_id,
+                    "name": track.name,
+                    "artist": track.artist,
+                    "album": track.album,
+                    "duration_ms": track.duration_ms,
+                    "tempo": None,
+                    "key": None,
+                    "position": position,
+                    # "analysis_source": None,
+                    "ultimate_guitar_url": track.ultimate_guitar_url,
+                    "spotify_url": f"https://open.spotify.com/track/{track.spotify_id}",
+                }
+            )
 
     return {
         "playlist_id": playlist_id,
@@ -210,8 +217,7 @@ async def analyze_missing_tracks(
         return {"succeeded": 0, "failed": 0, "attempted": 0, "results": []}
 
     tracks_payload = [
-        {"spotify_id": t.spotify_id, "name": t.name, "artist": t.artist}
-        for t in missing_tracks
+        {"spotify_id": t.spotify_id, "name": t.name, "artist": t.artist} for t in missing_tracks
     ]
 
     analysis_results = await batch_analyze_from_youtube(tracks_payload)
@@ -225,29 +231,33 @@ async def analyze_missing_tracks(
 
         if feat:
             await _upsert_audio_feature(db, sid, feat, stats)
-            per_track_results.append({
-                "spotify_id":      sid,
-                "status":          "success",
-                "tempo":           feat.get("tempo"),
-                "key":             feat.get("key"),
-                "mode":            feat.get("mode"),
-                #"analysis_source": feat.get("analysis_source"),
-            })
+            per_track_results.append(
+                {
+                    "spotify_id": sid,
+                    "status": "success",
+                    "tempo": feat.get("tempo"),
+                    "key": feat.get("key"),
+                    "mode": feat.get("mode"),
+                    # "analysis_source": feat.get("analysis_source"),
+                }
+            )
         else:
-            per_track_results.append({
-                "spotify_id": sid,
-                "status":     "failed",
-            })
+            per_track_results.append(
+                {
+                    "spotify_id": sid,
+                    "status": "failed",
+                }
+            )
 
     succeeded = stats["audio_features_upserted"]
-    failed    = len(missing_tracks) - succeeded
+    failed = len(missing_tracks) - succeeded
 
     return {
         "succeeded": succeeded,
-        "failed":    failed,
+        "failed": failed,
         "attempted": len(missing_tracks),
-        "results":   per_track_results,
-        "errors":    stats["errors"],
+        "results": per_track_results,
+        "errors": stats["errors"],
     }
 
 
@@ -260,7 +270,7 @@ async def analyze_stream(
     # EventSource can't set headers, so accept token as ?authorization=Bearer+xyz
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing token")
-    access_token = authorization[len("Bearer "):]  # noqa: F841
+    access_token = authorization[len("Bearer ") :]  # noqa: F841
 
     """
     SSE endpoint. Streams Recco results as they arrive, and immediately starts
@@ -285,29 +295,29 @@ async def analyze_stream(
             return "data: " + json.dumps(obj) + "\n\n"
 
         def build_track_event(sid: str, feat: dict, track_obj, done: int, source: str) -> dict:
-            key_val  = feat.get("key")
+            key_val = feat.get("key")
             mode_val = feat.get("mode")
             return {
-                "type":                "track",
-                "spotify_id":          sid,
-                "name":                track_obj.name if track_obj else sid,
-                "artist":              track_obj.artist if track_obj else "",
-                "album":               track_obj.album if track_obj else None,
-                "duration_ms":         track_obj.duration_ms if track_obj else None,
+                "type": "track",
+                "spotify_id": sid,
+                "name": track_obj.name if track_obj else sid,
+                "artist": track_obj.artist if track_obj else "",
+                "album": track_obj.album if track_obj else None,
+                "duration_ms": track_obj.duration_ms if track_obj else None,
                 "ultimate_guitar_url": track_obj.ultimate_guitar_url if track_obj else None,
-                "spotify_url":          f"https://open.spotify.com/track/{sid}",
-                "tempo":               feat.get("tempo"),
-                "key":                 key_val,
-                "key_name":            KEY_NAMES[key_val] if key_val is not None else None,
-                "mode":                mode_val,
-                "mode_name":           "maj" if mode_val == 1 else "min" if mode_val == 0 else None,
-                "energy":              feat.get("energy"),
-                "danceability":        feat.get("danceability"),
-                "valence":             feat.get("valence"),
-                "loudness":            feat.get("loudness"),
-                "source":              source,
-                "done":                done,
-                "total":               total,
+                "spotify_url": f"https://open.spotify.com/track/{sid}",
+                "tempo": feat.get("tempo"),
+                "key": key_val,
+                "key_name": KEY_NAMES[key_val] if key_val is not None else None,
+                "mode": mode_val,
+                "mode_name": "maj" if mode_val == 1 else "min" if mode_val == 0 else None,
+                "energy": feat.get("energy"),
+                "danceability": feat.get("danceability"),
+                "valence": feat.get("valence"),
+                "loudness": feat.get("loudness"),
+                "source": source,
+                "done": done,
+                "total": total,
             }
 
         # ── load missing tracks ──────────────────────────────────────────────
@@ -335,13 +345,12 @@ async def analyze_stream(
         total = len(missing_tracks)
         yield sse({"type": "start", "total": total})
 
-        track_map      = {t.spotify_id: t for t in missing_tracks}
+        track_map = {t.spotify_id: t for t in missing_tracks}
         tracks_payload = [
-            {"spotify_id": t.spotify_id, "name": t.name, "artist": t.artist}
-            for t in missing_tracks
+            {"spotify_id": t.spotify_id, "name": t.name, "artist": t.artist} for t in missing_tracks
         ]
 
-        stats      = {"audio_features_upserted": 0, "errors": []}
+        stats = {"audio_features_upserted": 0, "errors": []}
         done_count = 0
 
         _queue: asyncio.Queue = asyncio.Queue()
@@ -375,12 +384,12 @@ async def analyze_stream(
         rb_task = asyncio.create_task(run_reccobeats())
 
         # ── Single queue consumer drives all SSE output ──────────────────────
-        yt_pending  = 0
+        yt_pending = 0
         rb_finished = False
 
         while True:
             item = await _queue.get()
-            tag  = item[0]
+            tag = item[0]
 
             if tag == "rb_found":
                 _, sid, feat = item
@@ -397,12 +406,14 @@ async def analyze_stream(
                 _, sid = item
                 yt_pending += 1
                 track = track_map.get(sid)
-                yield sse({
-                    "type":       "miss",
-                    "spotify_id": sid,
-                    "name":       track.name if track else sid,
-                    "artist":     track.artist if track else "",
-                })
+                yield sse(
+                    {
+                        "type": "miss",
+                        "spotify_id": sid,
+                        "name": track.name if track else sid,
+                        "artist": track.artist if track else "",
+                    }
+                )
 
             elif tag == "yt_found":
                 _, sid, feat = item
@@ -431,14 +442,14 @@ async def analyze_stream(
         await rb_task  # surface any uncaught Recco exception
 
         analyzed_total = stats["audio_features_upserted"]
-        missing_total  = total - analyzed_total
+        missing_total = total - analyzed_total
         yield sse({"type": "done", "analyzed": analyzed_total, "missing": missing_total})
 
     return StreamingResponse(
         event_stream(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control":     "no-cache",
+            "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         },
     )
@@ -473,14 +484,14 @@ async def manual_analyze_track(
     key_val = feat.get("key")
     mode_val = feat.get("mode")
     return {
-        "status":       "success",
-        "spotify_id":   spotify_id,
-        "tempo":        feat.get("tempo"),
-        "key":          key_val,
-        "key_name":     KEY_NAMES[key_val] if key_val is not None else None,
-        "mode":         mode_val,
-        "mode_name":    "maj" if mode_val == 1 else "min" if mode_val == 0 else None,
-        "energy":       feat.get("energy"),
+        "status": "success",
+        "spotify_id": spotify_id,
+        "tempo": feat.get("tempo"),
+        "key": key_val,
+        "key_name": KEY_NAMES[key_val] if key_val is not None else None,
+        "mode": mode_val,
+        "mode_name": "maj" if mode_val == 1 else "min" if mode_val == 0 else None,
+        "energy": feat.get("energy"),
         "danceability": feat.get("danceability"),
-        "valence":      feat.get("valence"),
+        "valence": feat.get("valence"),
     }

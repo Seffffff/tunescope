@@ -1,9 +1,8 @@
 """
 FastAPI application factory.
 """
-import asyncio
-from app.ingestion.manual_analyzer import _warmup_librosa
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -11,13 +10,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, playlists, ingestion
+from app.api.routes import auth, ingestion, playlists
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
-from app.db.session import engine
 from app.db.models import models  # noqa: F401
+from app.db.session import engine
+from app.ingestion.manual_analyzer import _warmup_librosa
 
 settings = get_settings()
 logger = get_logger(__name__)
@@ -31,6 +30,7 @@ async def lifespan(app: FastAPI):
     logger.info("app_starting", env="debug" if settings.debug else "production")
 
     from app.db.session import Base
+
     # from app.db.models.models import (  # noqa
     #     User, Playlist, PlaylistTrack, Track, AudioFeatures, RawSpotifyPayload
     # )
@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("database_tables_ready")
 
-    loop = asyncio.get_event_loop()         
+    loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _warmup_librosa)
 
     yield

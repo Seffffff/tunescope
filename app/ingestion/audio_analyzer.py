@@ -7,6 +7,7 @@ from the ReccoBeats API using Spotify track IDs.
 Correct batch endpoint: GET /v1/audio-features?ids=id1,id2,id3
 Response: { "content": [ { ...features... }, ... ] }
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -37,7 +38,9 @@ async def _fetch_batch(client: httpx.AsyncClient, spotify_ids: list[str]) -> lis
             return []
 
         if not response.is_success:
-            logger.warning("reccobeats_batch_error", status=response.status_code, body=response.text[:500])
+            logger.warning(
+                "reccobeats_batch_error", status=response.status_code, body=response.text[:500]
+            )
             return []
 
         data = response.json()
@@ -45,7 +48,13 @@ async def _fetch_batch(client: httpx.AsyncClient, spotify_ids: list[str]) -> lis
         if isinstance(data, list):
             return data
         elif isinstance(data, dict):
-            items = data.get("content") or data.get("audioFeatures") or data.get("data") or data.get("items") or []
+            items = (
+                data.get("content")
+                or data.get("audioFeatures")
+                or data.get("data")
+                or data.get("items")
+                or []
+            )
             if not items and "content" not in data:
                 logger.warning("reccobeats_unknown_response_shape", keys=list(data.keys()))
             return items
@@ -53,7 +62,7 @@ async def _fetch_batch(client: httpx.AsyncClient, spotify_ids: list[str]) -> lis
             logger.warning("reccobeats_unexpected_response_type", type=type(data).__name__)
             return []
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("reccobeats_timeout", count=len(spotify_ids))
         return []
     except Exception as exc:
@@ -102,10 +111,7 @@ async def batch_analyze_previews(
     spotify_ids = list(track_map.keys())
     results: dict[str, dict] = {}
 
-    batches = [
-        spotify_ids[i: i + BATCH_SIZE]
-        for i in range(0, len(spotify_ids), BATCH_SIZE)
-    ]
+    batches = [spotify_ids[i : i + BATCH_SIZE] for i in range(0, len(spotify_ids), BATCH_SIZE)]
 
     # Per-batch timeout — small batches should respond quickly
     timeout = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=5.0)
@@ -115,7 +121,9 @@ async def batch_analyze_previews(
         headers={"Accept": "application/json"},
     ) as client:
         for i, batch in enumerate(batches):
-            logger.info("reccobeats_fetching_batch", batch=i + 1, total=len(batches), size=len(batch))
+            logger.info(
+                "reccobeats_fetching_batch", batch=i + 1, total=len(batches), size=len(batch)
+            )
             features_list = await _fetch_batch(client, batch)
 
             batch_set = set(batch)
@@ -133,7 +141,9 @@ async def batch_analyze_previews(
                     # fallbacks in case they change the format
                     spotify_sid = feat.get("spotifyId") or feat.get("spotify_id")
                 if not spotify_sid:
-                    logger.warning("reccobeats_feature_missing_id", feat_keys=list(feat.keys()), href=href)
+                    logger.warning(
+                        "reccobeats_feature_missing_id", feat_keys=list(feat.keys()), href=href
+                    )
                     continue
                 if spotify_sid not in batch_set:
                     logger.warning("reccobeats_unexpected_id", spotify_sid=spotify_sid, href=href)

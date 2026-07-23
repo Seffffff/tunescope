@@ -1,0 +1,25 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = ["alembic", ".venv", "venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",  # line length handled by black/formatter, not a lint failure
+    "B008",  # FastAPI's Depends()-as-default is the documented, idiomatic pattern
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Numba's logger must be silenced before structlog (which triggers numba's
+# import chain) is imported - the import order here is intentional.
+"app/core/logging.py" = ["E402"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
