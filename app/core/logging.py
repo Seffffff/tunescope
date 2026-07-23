@@ -2,7 +2,9 @@
 Structured logging configuration using structlog.
 Produces JSON logs in production, pretty-printed in development.
 """
+
 import logging
+
 # Suppress noisy third-party debug loggers
 logging.getLogger("numba").setLevel(logging.WARNING)
 logging.getLogger("numba.core").setLevel(logging.WARNING)
@@ -10,10 +12,8 @@ import sys
 from typing import Any
 
 import structlog
+
 from app.core.config import get_settings
-
-
-
 
 
 def configure_logging() -> None:
@@ -35,7 +35,8 @@ def configure_logging() -> None:
         renderer = structlog.processors.JSONRenderer()
 
     structlog.configure(
-        processors=shared_processors + [
+        processors=shared_processors
+        + [
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),
@@ -58,8 +59,13 @@ def configure_logging() -> None:
     root_logger.addHandler(handler)
     root_logger.setLevel(logging.DEBUG if settings.debug else logging.INFO)
 
-    for SILENCE_PEASANT in ("sqlalchemy.engine", "sqlalchemy.pool", "sqlalchemy.dialects",
-                   "httpcore", "httpx"):
+    for SILENCE_PEASANT in (
+        "sqlalchemy.engine",
+        "sqlalchemy.pool",
+        "sqlalchemy.dialects",
+        "httpcore",
+        "httpx",
+    ):
         logging.getLogger(SILENCE_PEASANT).setLevel(logging.WARNING)
 
 

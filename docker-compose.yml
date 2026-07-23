@@ -1,11 +1,11 @@
 services:
   app:
     build: .
-    container_name: spotify_enrichment_app
+    container_name: tunescope-app
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/spotify_enrichment2
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/tunescope
       - REDIS_URL=redis://redis:6379/0
       - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
       - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
@@ -22,16 +22,18 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./tunescope:/app/app
+      # Mounts the host's app/ dir over the container's WORKDIR/app so
+      # `--reload` picks up local edits without a rebuild.
+      - ./app:/tunescope/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   postgres:
     image: postgres:15-alpine
-    container_name: spotify_enrichment_db
+    container_name: tunescope-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: spotify_enrichment2
+      POSTGRES_DB: tunescope
     ports:
       - "5432:5432"
     volumes:
@@ -44,7 +46,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: spotify_enrichment_redis
+    container_name: tunescope-redis
     ports:
       - "6379:6379"
     healthcheck:

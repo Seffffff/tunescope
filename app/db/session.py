@@ -6,8 +6,9 @@ Design decisions:
 - scoped sessions per request via FastAPI dependency injection
 - expire_on_commit=False prevents lazy-load errors after commit
 """
+
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -24,7 +25,8 @@ engine = create_async_engine(
     settings.database_url,
     pool_size=10,
     max_overflow=20,
-    pool_pre_ping=True,  # Ensures stale connections are recycled
+    connect_args={"ssl": "require"},
+    pool_pre_ping=True,
     echo=settings.debug,
 )
 
@@ -37,6 +39,7 @@ AsyncSessionFactory = async_sessionmaker(
 
 class Base(DeclarativeBase):
     """Base class for all ORM models."""
+
     pass
 
 

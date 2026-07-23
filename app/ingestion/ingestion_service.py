@@ -9,8 +9,11 @@ Orchestrates the full playlist ingestion pipeline:
   4. Fetch audio features from ReccoBeats for tracks missing them
   5. Normalize and upsert audio features
 """
-import time
+
 import re
+import time
+from contextlib import suppress
+from urllib.parse import quote_plus
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,26 +36,23 @@ from app.transformation.normalizer import (
     transform_audio_features,
     transform_track,
 )
-from urllib.parse import quote_plus
-
 
 logger = get_logger(__name__)
 
 
-
 # Regexes applied to both name and artist
 _UG_BOTH = [
-    r'\s*\((?:feat|ft|with)[^)]*\)',        # (feat. X), (ft. X), (with X)
-    r'\s*\bfeat\.?\s+[^,\-\)]+',           # feat. X without parens
+    r"\s*\((?:feat|ft|with)[^)]*\)",  # (feat. X), (ft. X), (with X)
+    r"\s*\bfeat\.?\s+[^,\-\)]+",  # feat. X without parens
 ]
 
 # Regexes applied to track name only
 _UG_NAME = [
-    r'\s*-\s*Remix.*',                      # - Remix, - Club Remix, etc.
-    r'\s*\((?:remix|edit|version|mix|radio edit|extended)[^)]*\)',
-    r'\s*-\s*(?:Original Mix|Radio Edit|Extended Mix).*',
-    r'\s*-\s*(?:\d{4}\s+)?(?:Remaster(?:ed)?|Reissue|Deluxe.*|Anniversary.*|Edition.*)',  # - 2025 Remaster, - Remastered, - Deluxe Edition
-    r'\s*\((?:\d{4}\s+)?(?:Remaster(?:ed)?|Reissue|Deluxe|Anniversary)[^)]*\)',      # (2025 Remaster), (Remastered), (Deluxe Edition)
+    r"\s*-\s*Remix.*",  # - Remix, - Club Remix, etc.
+    r"\s*\((?:remix|edit|version|mix|radio edit|extended)[^)]*\)",
+    r"\s*-\s*(?:Original Mix|Radio Edit|Extended Mix).*",
+    r"\s*-\s*(?:\d{4}\s+)?(?:Remaster(?:ed)?|Reissue|Deluxe.*|Anniversary.*|Edition.*)",  # - 2025 Remaster, - Remastered, - Deluxe Edition
+    r"\s*\((?:\d{4}\s+)?(?:Remaster(?:ed)?|Reissue|Deluxe|Anniversary)[^)]*\)",  # (2025 Remaster), (Remastered), (Deluxe Edition)
 ]
 
 # Regexes applied to artist only
@@ -68,7 +68,7 @@ def _clean_for_ug(s: str, kind: str = "both") -> str:
     elif kind == "artist":
         patterns += _UG_ARTIST
     for pattern in patterns:
-        s = re.sub(pattern, '', s, flags=re.IGNORECASE)
+        s = re.sub(pattern, "", s, flags=re.IGNORECASE)
     return s.strip()
 
 
@@ -119,8 +119,8 @@ async def ingest_playlist(
             continue
         try:
             track_data = transform_track(raw_item)
-            clean_name   = _clean_for_ug(track_data['name'], kind="name")
-            clean_artist = _clean_for_ug(track_data['artist'], kind="artist")
+            clean_name = _clean_for_ug(track_data["name"], kind="name")
+            clean_artist = _clean_for_ug(track_data["artist"], kind="artist")
             track_data["ultimate_guitar_url"] = (
                 f"https://www.ultimate-guitar.com/search.php?search_type=title"
                 f"&value={quote_plus(f'{clean_artist} {clean_name}')}"
@@ -185,13 +185,13 @@ async def ingest_playlist(
                 try:
                     await session.commit()
                 except Exception as exc:
-                    logger.error("audio_feature_commit_error", spotify_id=spotify_id, error=str(exc))
+                    logger.error(
+                        "audio_feature_commit_error", spotify_id=spotify_id, error=str(exc)
+                    )
                     await session.rollback()
                 # Cache failures are non-blocking
-                try:
+                with suppress(Exception):
                     await set_cached_audio_features(spotify_id, raw_feat)
-                except Exception:
-                    pass
         else:
             stats["audio_features_not_found"] = 0
 
@@ -214,10 +214,8 @@ async def _upsert_audio_feature(
     try:
         if session.in_transaction():
             await session.rollback()
-            
-        result = await session.execute(
-            select(Track).where(Track.spotify_id == spotify_id)
-        )
+
+        result = await session.execute(select(Track).where(Track.spotify_id == spotify_id))
         track = result.scalar_one_or_none()
         if not track:
             logger.warning("audio_feature_track_not_found", spotify_id=spotify_id)

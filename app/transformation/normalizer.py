@@ -6,7 +6,9 @@ into normalized domain objects ready for storage.
 
 Design decision: Pure functions (no DB or IO) so they are trivially testable.
 """
+
 from datetime import datetime
+
 from app.algorithms.key_normalization import normalize_key
 
 

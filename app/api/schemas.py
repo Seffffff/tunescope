@@ -2,15 +2,13 @@
 Pydantic schemas for API request/response validation.
 Separate from ORM models — these define the API contract.
 """
-from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Auth
 # ---------------------------------------------------------------------------
+
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -23,6 +21,7 @@ class TokenResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Playlists
 # ---------------------------------------------------------------------------
+
 
 class PlaylistSummary(BaseModel):
     spotify_id: str
@@ -40,6 +39,7 @@ class PlaylistListResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Ingestion
 # ---------------------------------------------------------------------------
+
 
 class IngestionRequest(BaseModel):
     force_refetch: bool = Field(
@@ -67,6 +67,7 @@ class IngestionResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Playlist track listing (with feature status)
 # ---------------------------------------------------------------------------
+
 
 class TrackWithFeatures(BaseModel):
     spotify_id: str
@@ -108,6 +109,7 @@ class PlaylistTracksResponse(BaseModel):
 # YouTube / librosa fallback analysis
 # ---------------------------------------------------------------------------
 
+
 class TrackAnalysisRequest(BaseModel):
     spotify_id: str
     name: str
@@ -122,7 +124,7 @@ class TrackAnalysisResult(BaseModel):
     spotify_id: str
     name: str
     artist: str
-    status: str                      # "success" | "not_found" | "db_error"
+    status: str  # "success" | "not_found" | "db_error"
     error: str | None = None
     tempo: float | None = None
     key: int | None = None
@@ -143,6 +145,7 @@ class YouTubeAnalysisResponse(BaseModel):
 # Audio Features / Tracks
 # ---------------------------------------------------------------------------
 
+
 class AudioFeaturesResponse(BaseModel):
     track_spotify_id: str
     tempo: float | None
@@ -159,6 +162,7 @@ class AudioFeaturesResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Algorithm Outputs
 # ---------------------------------------------------------------------------
+
 
 class CompatibilityScore(BaseModel):
     track_a_id: str
